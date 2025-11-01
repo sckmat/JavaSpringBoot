@@ -1,16 +1,16 @@
-package com.yegorov.Lab2.model;
+package com.yegorov.Lab4.model;
 
 import com.fasterxml.jackson.annotation.JsonValue;
 
-public enum Systems {
-    ERP("Enterprise Resource Planning"),
-    CRM("Customer Relationship Management"),
-    WMS("Warehouse Management System"),
-    SERVICE("Service 1");
+public enum ErrorCodes {
+    VALIDATION("ValidationException"),
+    UNKNOWN("UnknownException"),
+    UNSUPPORTED("UnsupportedCodeException"),
+    EMPTY("");
 
     private final String name;
 
-    Systems(String name) {
+    ErrorCodes(String name) {
         this.name = name;
     }
 

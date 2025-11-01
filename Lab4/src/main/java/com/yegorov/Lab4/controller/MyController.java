@@ -1,16 +1,13 @@
-package com.yegorov.Lab2.controller;
+package com.yegorov.Lab4.controller;
 
-import com.yegorov.Lab2.exception.UnsupportedCodeException;
-import com.yegorov.Lab2.exception.ValidationFailedException;
-import com.yegorov.Lab2.model.*;
-import com.yegorov.Lab2.service.ModifyRequestService;
-import com.yegorov.Lab2.service.ModifyResponseService;
-import com.yegorov.Lab2.service.UnsupportedCodeService;
-import com.yegorov.Lab2.service.ValidationService;
-import com.yegorov.Lab2.util.DateTimeUtil;
+import com.yegorov.Lab4.exception.UnsupportedCodeException;
+import com.yegorov.Lab4.exception.ValidationFailedException;
+import com.yegorov.Lab4.model.*;
+import com.yegorov.Lab4.service.UnsupportedCodeService;
+import com.yegorov.Lab4.service.ValidationService;
+import com.yegorov.Lab4.util.DateTimeUtil;
 import jakarta.validation.Valid;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.BindingResult;
@@ -18,6 +15,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.time.Duration;
 import java.time.Instant;
 import java.util.Date;
 
@@ -28,24 +26,27 @@ public class MyController {
 
     private final ValidationService validationService;
     private final UnsupportedCodeService unsupportedCodeService;
-    private final ModifyRequestService modifyRequestService;
-    private final ModifyResponseService modifyResponseService;
 
-    public MyController(ValidationService validationService, UnsupportedCodeService unsupportedCodeService, ModifyRequestService modifyRequestService, @Qualifier("ModifySystemTimeResponseService") ModifyResponseService modifyResponseService) {
+    public MyController(ValidationService validationService, UnsupportedCodeService unsupportedCodeService) {
         this.validationService = validationService;
         this.unsupportedCodeService = unsupportedCodeService;
-        this.modifyRequestService = modifyRequestService;
-        this.modifyResponseService = modifyResponseService;
     }
 
     @PostMapping(value = "/feedback")
     public ResponseEntity<Response> feedback(@Valid @RequestBody Request request, BindingResult bindingResult) {
 
         log.info("request: {}", request);
+        Instant now = Instant.now();
+        Instant start = safeParseInstant(request.getSystemTime());
 
-        String receivedAtS1 = Instant.now().toString();
-        request.setSystemTime(receivedAtS1);
-        log.info("S1 received request at {}", receivedAtS1);
+        if (start != null) {
+            long ms = Duration.between(start, now).toMillis();
+            double sec = ms / 1000.0;
+            log.info("S2 transit time: {} ms ({} s) | start={}, now={}", ms, String.format("%.3f", sec), start, now);
+        } else {
+            log.warn("S2 transit time: cannot compute — missing/invalid timestamp (systemTime='{}')",
+                    request.getSystemTime());
+        }
 
         Response response = Response.builder()
                 .uid(request.getUid())
@@ -88,9 +89,17 @@ public class MyController {
             log.info("Response after unexpected error: {}", response);
             return new ResponseEntity<>(response, HttpStatus.INTERNAL_SERVER_ERROR);
         }
-        modifyResponseService.modify(response);
-        modifyRequestService.modify(request);
+
         log.info("Final response: {}", response);
-        return new ResponseEntity<>(modifyResponseService.modify(response), HttpStatus.OK);
+        return new ResponseEntity<>(response, HttpStatus.OK);
+    }
+
+    private Instant safeParseInstant(String iso) {
+        if (iso == null || iso.isBlank()) return null;
+        try {
+            return Instant.parse(iso);
+        } catch (Exception ignored) {
+            return null;
+        }
     }
 }
